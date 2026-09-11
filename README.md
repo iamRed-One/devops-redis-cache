@@ -12,10 +12,10 @@ standard library end to end.
 
 ## What it shows
 
-| Endpoint                | What happens                                                                                     | Typical latency                                                        |
-|--------------------------|---------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| `GET /profile/no-cache`  | Always hits "the database" (simulated, or real Supabase if configured)                           | Flat, every single request                                              |
-| `GET /profile/cached`    | Checks Redis first; on a miss, fetches + caches for 30s; on a hit, returns straight from cache    | Same as no-cache on the first request (miss), then **under 5ms** after |
+| Endpoint                | What happens                                                                                   | Typical latency                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `GET /profile/no-cache` | Always hits "the database" (simulated, or real Supabase if configured)                         | Flat, every single request                                             |
+| `GET /profile/cached`   | Checks Redis first; on a miss, fetches + caches for 30s; on a hit, returns straight from cache | Same as no-cache on the first request (miss), then **under 5ms** after |
 
 Every response includes a `duration_ms` field measured server-side.
 
@@ -92,7 +92,7 @@ insert into profiles (name, brand, role, location, stack, bio) values (
   'Full Stack & Mobile Developer',
   'Abuja, Nigeria',
   array['React Native', 'Flutter', 'Laravel', 'Django Channels', 'Go'],
-  '300-level CS student at AFIT Kaduna, runs Jurvclaq Global Concepts, freelances on Upwork & Fiverr.'
+  '300-level CS student at AFIT Kaduna, freelances on Upwork & Fiverr.'
 );
 ```
 
@@ -128,7 +128,7 @@ round trip to Supabase's PostgREST API instead of sleeping, so your
 "no-cache" numbers become genuine network + query latency (likely
 100-400ms depending on where you and the Supabase region are), and the
 cached path is unchanged — still Redis, still fast. That contrast is
-actually a *stronger* demo than the simulated version, since the "no-cache"
+actually a _stronger_ demo than the simulated version, since the "no-cache"
 number is now real, not fabricated.
 
 **Why REST instead of a Postgres driver?** Supabase gives you a normal
@@ -140,15 +140,41 @@ internet access and want the "more real" version, swapping to a direct
 Postgres connection is a reasonable next step, but not necessary for the
 demo to work or to be truthful about what it's measuring.
 
+## Plugging in a real Redis (Upstash)
+
+`resp.go` defaults to `localhost:6379` with no password, which is enough
+for local dev. To point it at a managed instance instead:
+
+**1. Create a database.** In the [Upstash console](https://console.upstash.com),
+create a Redis database in a region close to wherever you're hosting the
+backend.
+
+**2. Get the connection string.** Copy the `rediss://` URL from the
+database's dashboard — it looks like
+`rediss://default:<password>@<host>.upstash.io:6379`. The extra `s` in
+`rediss` matters: Upstash's free tier only accepts TLS connections.
+
+**3. Point the backend at it.**
+
+```bash
+export REDIS_URL="rediss://default:<password>@<host>.upstash.io:6379"
+./cache-demo
+```
+
+`NewRedisClient()` reads `REDIS_URL` at startup, switches the socket to TLS
+for a `rediss://` scheme (plain TCP for `redis://`), and sends an `AUTH`
+command with the password from the URL before every command. No other code
+changes needed. Leave `REDIS_URL` unset and it falls back to
+`localhost:6379` with no auth, exactly as before.
+
 ## Hosting it for a presentation
 
 A few things worth knowing before you deploy:
 
 - **Redis needs to be reachable from wherever the backend runs.** Options:
   a small Redis instance on the same host/container as the backend (simplest),
-  or a managed free-tier Redis (Upstash, Redis Cloud). If you use a managed
-  one, you'll need to swap `resp.go`'s plain TCP connection for TLS, or use
-  their REST API instead — ask me when you get there and I'll wire it up.
+  or a managed free-tier Redis (Upstash, Redis Cloud). Set `REDIS_URL` to
+  point at it — see "Plugging in a real Redis (Upstash)" below.
 - **CORS is wide open** (`Access-Control-Allow-Origin: *`) in `main.go`,
   which is fine for a demo but worth tightening to your actual frontend's
   domain if this stays running past the presentation.
@@ -164,4 +190,5 @@ A few things worth knowing before you deploy:
 - `resp.go` — the minimal hand-rolled Redis client (SET with TTL, GET, DEL)
 - `go.mod` — module file (no external dependencies)
 - `frontend/` — Vite vanilla-JS app: buttons, live results, request history bars
+
 # devops-redis-cache
