@@ -1,4 +1,4 @@
-/* Light theme (default) — exact values from the "1a" mockup */
+/* Light theme (default) - exact values from the "1a" mockup */
 :root {
   --bg: #ffffff;
   --fg: #141414;
@@ -56,7 +56,7 @@
   background: var(--bg);
 }
 
-/* Dark theme — exact values from the "1b" mockup */
+/* Dark theme - exact values from the "1b" mockup */
 :root[data-theme='dark'] {
   --bg: #0b0e11;
   --fg: #eaecef;

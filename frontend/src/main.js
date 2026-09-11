@@ -3,7 +3,7 @@ import './style.css'
 const ENV_BASE_URL = import.meta.env.VITE_API_URL
 let baseUrl = ENV_BASE_URL || localStorage.getItem('cacheDemoBaseUrl') || 'https://devops-redis-cache.onrender.com'
 
-const EM_DASH = '—'
+const PLACEHOLDER = '--'
 
 let lastNoCacheMs = null
 let lastCachedMs = null
@@ -37,7 +37,7 @@ app.innerHTML = `
 
     <div class="hero">
       <h1>No-Cache vs Cached.</h1>
-      <p>The same profile record served two ways &mdash; straight from the database on every request, or from Redis while the key is warm.</p>
+      <p>The same profile record served two ways: straight from the database on every request, or from Redis while the key is warm.</p>
     </div>
 
     <div class="split">
@@ -49,16 +49,16 @@ app.innerHTML = `
             <div class="card-route mono">GET /profile/no-cache</div>
           </div>
         </div>
-        <p class="card-desc">Every call queries the database. No shortcut &mdash; the full cost is paid each time.</p>
+        <p class="card-desc">Every call queries the database. No shortcut: the full cost is paid each time.</p>
         <div class="card-number">
-          <span class="val mono" id="nc-val" style="color:var(--num-nocache)">${EM_DASH}</span>
+          <span class="val mono" id="nc-val" style="color:var(--num-nocache)">${PLACEHOLDER}</span>
           <span class="unit mono" id="nc-unit"></span>
         </div>
         <div class="card-caption idle" id="nc-caption">flat, every single request</div>
         <div class="card-divider"></div>
         <div class="card-chips">
-          <span class="chip mono" id="nc-source">source: ${EM_DASH}</span>
-          <span class="chip mono" id="nc-duration">duration_ms: ${EM_DASH}</span>
+          <span class="chip mono" id="nc-source">source: ${PLACEHOLDER}</span>
+          <span class="chip mono" id="nc-duration">duration_ms: ${PLACEHOLDER}</span>
         </div>
         <div class="card-error mono" id="nc-error" hidden></div>
         <button class="card-fetch" id="btn-no-cache">Fetch</button>
@@ -74,14 +74,14 @@ app.innerHTML = `
         </div>
         <p class="card-desc">Redis answers first. The database is touched once per TTL window, on the miss that fills the key.</p>
         <div class="card-number">
-          <span class="val mono" id="c-val" style="color:var(--num-cached)">${EM_DASH}</span>
+          <span class="val mono" id="c-val" style="color:var(--num-cached)">${PLACEHOLDER}</span>
           <span class="unit mono" id="c-unit"></span>
         </div>
-        <div class="card-caption idle" id="c-caption">cold key &mdash; the first fetch fills it</div>
+        <div class="card-caption idle" id="c-caption">cold key: the first fetch fills it</div>
         <div class="card-divider"></div>
         <div class="card-chips">
-          <span class="chip mono" id="c-source">source: ${EM_DASH}</span>
-          <span class="chip mono" id="c-duration">duration_ms: ${EM_DASH}</span>
+          <span class="chip mono" id="c-source">source: ${PLACEHOLDER}</span>
+          <span class="chip mono" id="c-duration">duration_ms: ${PLACEHOLDER}</span>
         </div>
         <div class="card-error mono" id="c-error" hidden></div>
         <button class="card-fetch" id="btn-cached">Fetch</button>
@@ -182,13 +182,13 @@ async function runFetch(mode) {
       const captionEl = document.getElementById('c-caption')
       captionEl.classList.remove('idle')
       captionEl.classList.add('active')
-      captionEl.textContent = data.source === 'cache' ? 'served from cache' : 'miss — key written, 30s ttl'
+      captionEl.textContent = data.source === 'cache' ? 'served from cache' : 'miss: key written, 30s ttl'
     }
     updateSpeedup()
     renderProfile(data.profile)
   } catch (err) {
-    document.getElementById(`${p}-val`).textContent = EM_DASH
-    errorEl.textContent = `connection refused — is the Go server running? (${err.message})`
+    document.getElementById(`${p}-val`).textContent = PLACEHOLDER
+    errorEl.textContent = `connection refused - is the Go server running? (${err.message})`
     errorEl.hidden = false
   } finally {
     if (p === 'nc') ncBusy = false
@@ -202,18 +202,18 @@ async function resetCache() {
   try {
     await fetch(`${baseUrl}/reset`)
   } catch (err) {
-    // Best-effort — still reset the UI's own idea of cache state.
+    // Best-effort: still reset the UI's own idea of cache state.
   }
   warm = false
   lastCachedMs = null
-  document.getElementById('c-val').textContent = EM_DASH
+  document.getElementById('c-val').textContent = PLACEHOLDER
   document.getElementById('c-unit').textContent = ''
-  document.getElementById('c-source').textContent = `source: ${EM_DASH}`
-  document.getElementById('c-duration').textContent = `duration_ms: ${EM_DASH}`
+  document.getElementById('c-source').textContent = `source: ${PLACEHOLDER}`
+  document.getElementById('c-duration').textContent = `duration_ms: ${PLACEHOLDER}`
   const captionEl = document.getElementById('c-caption')
   captionEl.classList.remove('active')
   captionEl.classList.add('idle')
-  captionEl.textContent = 'cache cleared — next fetch is a miss'
+  captionEl.textContent = 'cache cleared: next fetch is a miss'
   updateSpeedup()
 }
 
