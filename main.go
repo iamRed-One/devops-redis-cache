@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -62,7 +63,7 @@ const cacheKey = "profile:demo"
 const cacheTTLSeconds = 30
 
 func main() {
-	redis := NewRedisClient("localhost:6379")
+	redis := NewRedisClient()
 
 	http.HandleFunc("/profile/no-cache", withCORS(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -120,7 +121,11 @@ func main() {
 		w.Write([]byte("cache cleared\n"))
 	}))
 
-	addr := ":8080"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // local dev default; Render (and most PaaS hosts) inject PORT
+	}
+	addr := ":" + port
 	log.Printf("cache-demo listening on %s", addr)
 	if useSupabase {
 		log.Printf("  data source: Supabase (SUPABASE_URL is set)")

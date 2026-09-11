@@ -6,26 +6,97 @@ package main
 // and DEL, which is all this demo needs. It's also a nice side effect of
 // not having proxy.golang.org access in this environment: you get to see
 // exactly what a "real" Redis client is doing under the hood.
+//
+// Connection details come from the REDIS_URL env var, if set:
+//   redis://host:port                    - plain TCP, no auth (local Redis)
+//   rediss://default:<password>@host:port - TLS + AUTH (Upstash and most
+//                                            managed free tiers)
+// With REDIS_URL unset, it falls back to localhost:6379 with no auth, so
+// local dev needs zero setup.
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type RedisClient struct {
-	addr string
+	addr     string
+	useTLS   bool
+	password string
 }
 
-func NewRedisClient(addr string) *RedisClient {
-	return &RedisClient{addr: addr}
+// NewRedisClient builds a client from REDIS_URL, or falls back to a local,
+// unauthenticated Redis on localhost:6379 for zero-setup local dev.
+func NewRedisClient() *RedisClient {
+	raw := os.Getenv("REDIS_URL")
+	if raw == "" {
+		return &RedisClient{addr: "localhost:6379"}
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		log.Printf("warning: could not parse REDIS_URL (%v) — falling back to localhost:6379", err)
+		return &RedisClient{addr: "localhost:6379"}
+	}
+	password := ""
+	if u.User != nil {
+		password, _ = u.User.Password()
+	}
+	return &RedisClient{
+		addr:     u.Host,
+		useTLS:   u.Scheme == "rediss",
+		password: password,
+	}
 }
 
 func (r *RedisClient) dial() (net.Conn, error) {
-	return net.DialTimeout("tcp", r.addr, 2*time.Second)
+	var conn net.Conn
+	var err error
+	if r.useTLS {
+		host := r.addr
+		if i := strings.LastIndex(host, ":"); i != -1 {
+			host = host[:i]
+		}
+		conn, err = tls.DialWithDialer(&net.Dialer{Timeout: 2 * time.Second}, "tcp", r.addr, &tls.Config{ServerName: host})
+	} else {
+		conn, err = net.DialTimeout("tcp", r.addr, 2*time.Second)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if r.password != "" {
+		if err := authenticate(conn, r.password); err != nil {
+			conn.Close()
+			return nil, err
+		}
+	}
+	return conn, nil
+}
+
+// authenticate sends the RESP AUTH command required by password-protected
+// instances (every managed free tier, Upstash included) right after
+// dialing, before any other command on that connection.
+func authenticate(conn net.Conn, password string) error {
+	cmd := encodeCommand("AUTH", password)
+	if _, err := conn.Write([]byte(cmd)); err != nil {
+		return err
+	}
+	reader := bufio.NewReader(conn)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(line, "+OK") {
+		return fmt.Errorf("redis AUTH failed: %q", line)
+	}
+	return nil
 }
 
 // encodeCommand builds a RESP "array of bulk strings" command, which is

@@ -1,7 +1,7 @@
 import './style.css'
 
 const ENV_BASE_URL = import.meta.env.VITE_API_URL
-let baseUrl = ENV_BASE_URL || localStorage.getItem('cacheDemoBaseUrl') || 'http://localhost:8080'
+let baseUrl = ENV_BASE_URL || localStorage.getItem('cacheDemoBaseUrl') || 'https://devops-redis-cache.onrender.com'
 
 const EM_DASH = '—'
 
