@@ -11,15 +11,6 @@ let ncBusy = false
 let cBusy = false
 let warm = false // has the cached side ever been fetched (miss or hit)?
 
-const PROFILE_PLACEHOLDER = {
-  name: 'Ridwan Ambali',
-  brand: 'Code Red',
-  role: 'Full Stack & Mobile Developer',
-  location: 'Abuja, Nigeria',
-  stack: ['React Native', 'Flutter', 'Laravel', 'Django Channels', 'Go'],
-  bio: '300-level CS student at AFIT Kaduna, runs Jurvclaq Global Concepts, freelances on Upwork & Fiverr.',
-}
-
 const ICONS = {
   brand: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--brand-mark-icon)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>`,
   db: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--icon-nocache)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5.5" rx="7.5" ry="3"/><path d="M4.5 5.5v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-6"/><path d="M4.5 11.5v6c0 1.66 3.36 3 7.5 3s7.5-1.34 7.5-3v-6"/></svg>`,
@@ -105,20 +96,18 @@ app.innerHTML = `
     <div class="profile-section">
       <div class="profile-label">The record being fetched</div>
       <div class="profile">
-        <div class="avatar mono" id="profile-avatar">RA</div>
+        <div class="avatar mono" id="profile-avatar">···</div>
         <div class="profile-body">
           <div class="profile-name-row">
-            <h2 id="profile-name">${PROFILE_PLACEHOLDER.name}</h2>
-            <span class="brand-pill" id="profile-brand">${PROFILE_PLACEHOLDER.brand}</span>
+            <h2 id="profile-name">Loading&hellip;</h2>
+            <span class="brand-pill" id="profile-brand"></span>
           </div>
           <div class="profile-meta">
-            <span class="role" id="profile-role">${PROFILE_PLACEHOLDER.role}</span>
-            <span class="loc">${ICONS.pin}<span id="profile-location">${PROFILE_PLACEHOLDER.location}</span></span>
+            <span class="role" id="profile-role"></span>
+            <span class="loc">${ICONS.pin}<span id="profile-location"></span></span>
           </div>
-          <div class="profile-stack" id="profile-stack">
-            ${PROFILE_PLACEHOLDER.stack.map((s) => `<span class="chip">${s}</span>`).join('')}
-          </div>
-          <p class="profile-bio" id="profile-bio">${PROFILE_PLACEHOLDER.bio}</p>
+          <div class="profile-stack" id="profile-stack"></div>
+          <p class="profile-bio" id="profile-bio">Fetching the record from the database&hellip;</p>
         </div>
       </div>
     </div>
@@ -156,6 +145,10 @@ baseUrlInput.addEventListener('change', () => {
 document.getElementById('btn-no-cache').addEventListener('click', () => runFetch('no-cache'))
 document.getElementById('btn-cached').addEventListener('click', () => runFetch('cached'))
 document.getElementById('btn-reset').addEventListener('click', resetCache)
+
+// Populate the profile (and the no-cache card) from the real backend as
+// soon as the page loads, instead of ever showing hardcoded placeholder data.
+runFetch('no-cache')
 
 async function runFetch(mode) {
   const p = mode === 'no-cache' ? 'nc' : 'c'
