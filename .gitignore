@@ -1,0 +1,4 @@
+
+# aws deploy scratch/state
+deploy/aws/.work/
+deploy/aws/.state

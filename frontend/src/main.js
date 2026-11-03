@@ -37,7 +37,7 @@ app.innerHTML = `
 
     <div class="hero">
       <h1>No-Cache vs Cached.</h1>
-      <p>The same profile record served two ways: straight from the database on every request, or from Redis while the key is warm.</p>
+      <p>The same live weather lookup served two ways: calling the internet API on every request, or from Redis while the key is warm.</p>
     </div>
 
     <div class="split">
@@ -46,10 +46,10 @@ app.innerHTML = `
           <div class="card-icon">${ICONS.db}</div>
           <div>
             <div class="card-tag" style="color:var(--label-nocache)">NO CACHE</div>
-            <div class="card-route mono">GET /profile/no-cache</div>
+            <div class="card-route mono">GET /weather/no-cache</div>
           </div>
         </div>
-        <p class="card-desc">Every call queries the database. No shortcut: the full cost is paid each time.</p>
+        <p class="card-desc">Every call goes out to the weather API over the internet. No shortcut: the full cost is paid each time.</p>
         <div class="card-number">
           <span class="val mono" id="nc-val" style="color:var(--num-nocache)">${PLACEHOLDER}</span>
           <span class="unit mono" id="nc-unit"></span>
@@ -69,10 +69,10 @@ app.innerHTML = `
           <div class="card-icon">${ICONS.bolt}</div>
           <div>
             <div class="card-tag" style="color:var(--label-cached)">CACHED</div>
-            <div class="card-route mono">GET /profile/cached</div>
+            <div class="card-route mono">GET /weather/cached</div>
           </div>
         </div>
-        <p class="card-desc">Redis answers first. The database is touched once per TTL window, on the miss that fills the key.</p>
+        <p class="card-desc">Redis answers first. The weather API is called once per TTL window, on the miss that fills the key.</p>
         <div class="card-number">
           <span class="val mono" id="c-val" style="color:var(--num-cached)">${PLACEHOLDER}</span>
           <span class="unit mono" id="c-unit"></span>
@@ -94,20 +94,20 @@ app.innerHTML = `
     </div>
 
     <div class="profile-section">
-      <div class="profile-label">The record being fetched</div>
+      <div class="profile-label">The record being fetched (live from Open-Meteo)</div>
       <div class="profile">
-        <div class="avatar mono" id="profile-avatar">···</div>
+        <div class="avatar mono" id="w-temp">--</div>
         <div class="profile-body">
           <div class="profile-name-row">
-            <h2 id="profile-name">Loading&hellip;</h2>
-            <span class="brand-pill" id="profile-brand"></span>
+            <h2 id="w-city">Not fetched yet</h2>
+            <span class="brand-pill" id="w-condition"></span>
           </div>
           <div class="profile-meta">
-            <span class="role" id="profile-role"></span>
-            <span class="loc">${ICONS.pin}<span id="profile-location"></span></span>
+            <span class="role" id="w-observed"></span>
+            <span class="loc">${ICONS.pin}<span id="w-country"></span></span>
           </div>
-          <div class="profile-stack" id="profile-stack"></div>
-          <p class="profile-bio" id="profile-bio">Fetching the record from the database&hellip;</p>
+          <div class="profile-stack" id="w-chips"></div>
+          <p class="profile-bio" id="w-fetched">Click a Fetch button above to pull the live record.</p>
         </div>
       </div>
     </div>
@@ -146,10 +146,6 @@ document.getElementById('btn-no-cache').addEventListener('click', () => runFetch
 document.getElementById('btn-cached').addEventListener('click', () => runFetch('cached'))
 document.getElementById('btn-reset').addEventListener('click', resetCache)
 
-// Populate the profile (and the no-cache card) from the real backend as
-// soon as the page loads, instead of ever showing hardcoded placeholder data.
-runFetch('no-cache')
-
 async function runFetch(mode) {
   const p = mode === 'no-cache' ? 'nc' : 'c'
   if (p === 'nc' && ncBusy) return
@@ -165,7 +161,7 @@ async function runFetch(mode) {
   errorEl.hidden = true
 
   try {
-    const res = await fetch(`${baseUrl}/profile/${mode}`)
+    const res = await fetch(`${baseUrl}/weather/${mode}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
 
@@ -185,7 +181,7 @@ async function runFetch(mode) {
       captionEl.textContent = data.source === 'cache' ? 'served from cache' : 'miss: key written, 30s ttl'
     }
     updateSpeedup()
-    renderProfile(data.profile)
+    renderWeather(data.data)
   } catch (err) {
     document.getElementById(`${p}-val`).textContent = PLACEHOLDER
     errorEl.textContent = `connection refused - is the Go server running? (${err.message})`
@@ -227,17 +223,16 @@ function updateSpeedup() {
   }
 }
 
-function renderProfile(p) {
-  document.getElementById('profile-avatar').textContent = p.name
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
+function renderWeather(w) {
+  document.getElementById('w-temp').textContent = `${w.temp_c.toFixed(1)}°`
+  document.getElementById('w-city').textContent = w.city
+  document.getElementById('w-condition').textContent = w.condition
+  document.getElementById('w-observed').textContent = `observed ${w.observed_at.replace('T', ' ')}`
+  document.getElementById('w-country').textContent = `${w.city}, ${w.country}`
+  document.getElementById('w-chips').innerHTML = [`humidity ${w.humidity_pct}%`, `wind ${w.wind_kmh} km/h`]
+    .map((s) => `<span class="chip">${s}</span>`)
     .join('')
-    .toUpperCase()
-  document.getElementById('profile-name').textContent = p.name
-  document.getElementById('profile-brand').textContent = p.brand
-  document.getElementById('profile-role').textContent = p.role
-  document.getElementById('profile-location').textContent = p.location
-  document.getElementById('profile-stack').innerHTML = p.stack.map((s) => `<span class="chip">${s}</span>`).join('')
-  document.getElementById('profile-bio').textContent = p.bio
+  const ageSec = Math.max(0, Math.round((Date.now() - new Date(w.fetched_at).getTime()) / 1000))
+  document.getElementById('w-fetched').textContent =
+    `Pulled from the API by the server ${ageSec}s ago (fetched_at ${w.fetched_at}). A cached response keeps this value until the 30s TTL expires.`
 }
