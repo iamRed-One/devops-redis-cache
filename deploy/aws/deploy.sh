@@ -12,7 +12,6 @@
 #
 # Optional env vars:
 #   REGION=eu-west-1            ALERT_EMAIL=you@example.com
-#   SUPABASE_URL=...            SUPABASE_ANON_KEY=...   (omit = simulated 180ms DB)
 set -euo pipefail
 
 export MSYS_NO_PATHCONV=1          # stop Git Bash rewriting /paths passed to aws.exe
@@ -138,8 +137,6 @@ chmod +x /usr/local/bin/cache-demo
 cat > /etc/cache-demo.env <<ENV
 PORT=8080
 REDIS_URL=redis://$REDIS_HOST:6379
-SUPABASE_URL=${SUPABASE_URL:-}
-SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
 ENV
 chmod 600 /etc/cache-demo.env
 cat > /etc/systemd/system/cache-demo.service <<UNIT

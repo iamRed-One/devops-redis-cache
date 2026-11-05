@@ -7,7 +7,10 @@ NAME=cache-demo
 HERE="$(cd "$(dirname "$0")" && pwd)"; STATE="$HERE/.state"; cd "$HERE"
 get() { grep -E "^$1=" "$STATE" 2>/dev/null | tail -1 | cut -d= -f2- || true; }
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
-ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+ACCOUNT="$(aws sts get-caller-identity --query Account --output text 2>/dev/null)"
+if [ -z "$ACCOUNT" ]; then
+  echo "Not signed in to AWS (session expired?). Run 'aws login', then re-run this script."; exit 1
+fi
 
 CF_ID="$(get cf_id)"
 if [ -n "$CF_ID" ]; then
@@ -45,5 +48,16 @@ aws iam delete-role --role-name "$NAME-ec2" 2>/dev/null
 say "Budget"
 aws budgets delete-budget --region us-east-1 --account-id "$ACCOUNT" --budget-name "$NAME-guard" 2>/dev/null
 
-rm -f "$STATE"; rm -rf "$HERE/.work"
-say "Teardown complete. Verify in the console: EC2, ElastiCache, CloudFront, S3."
+# Only forget the resource IDs if everything is really gone, so a partial
+# failure can simply be re-run.
+LEFT=0
+[ -n "$CF_ID" ] && aws cloudfront get-distribution --id "$CF_ID" >/dev/null 2>&1 && { echo "STILL EXISTS: CloudFront $CF_ID"; LEFT=1; }
+[ -n "$IID" ] && [ "$(aws ec2 describe-instances --instance-ids "$IID" --query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null)" != "terminated" ] && { echo "STILL EXISTS: EC2 $IID"; LEFT=1; }
+aws elasticache describe-cache-clusters --cache-cluster-id "$NAME" >/dev/null 2>&1 && { echo "STILL EXISTS: ElastiCache $NAME"; LEFT=1; }
+for b in "$NAME-$ACCOUNT-web" "$NAME-$ACCOUNT-artifacts"; do aws s3api head-bucket --bucket "$b" >/dev/null 2>&1 && { echo "STILL EXISTS: bucket $b"; LEFT=1; }; done
+if [ "$LEFT" = "0" ]; then
+  rm -f "$STATE"; rm -rf "$HERE/.work"
+  say "Teardown complete. Everything created by deploy.sh is gone."
+else
+  say "Teardown INCOMPLETE. State kept; fix the errors above and re-run."; exit 1
+fi
